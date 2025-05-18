@@ -1,5 +1,6 @@
 const pool = require("../config/db");
 const bcrypt = require("bcrypt");
+const utils = require('../utils/utils');
 
 // Get all users
 const getUsers = async (req, res) => {
@@ -107,4 +108,74 @@ const loginUser = async (req, res) => {
   }
 };
 
-module.exports = { getUsers, createUser, loginUser };
+const signupUser = async (req, res) => {
+  const {
+    email,
+    full_name,
+    password,
+  } = req.body;
+
+  const { extractNames } = utils;
+
+
+  // const user_type = type;
+  const now = new Date();
+  const created_at = now.toISOString();
+  const updated_at = now.toISOString();
+
+  try {
+    console.log(`Hashing the password ${password}`);
+    
+    const hashedPassword = await bcrypt.hash(password, 10);
+    
+    // Start a transaction
+    await pool.query("BEGIN");
+
+    const { first_name, last_name } = extractNames(full_name);
+    // add user in users table
+    const result = await pool.query(
+      `INSERT INTO event_karlo_backend.users 
+      (email, first_name, last_name, user_type, created_at, updated_at) 
+      VALUES 
+      ($1, $2, $3, $4, $5, $6) RETURNING *`,
+      [
+        email,
+        first_name,
+        last_name,
+        'consumer',
+        created_at,
+        updated_at,
+      ]
+    );
+
+    userId = result.rows[0].user_id;
+
+    // Insert into auth table
+    await pool.query(
+      `INSERT INTO event_karlo_backend.auth 
+      (user_id, password_hash, created_at, updated_at) 
+      VALUES 
+      ($1, $2, $3, $4)`,
+      [userId, hashedPassword, created_at, updated_at]
+    );
+
+    // Commit the transaction
+    await pool.query("COMMIT");
+
+    res.status(201).json(result.rows[0]);
+  } catch (error) {
+    // Rollback the transaction in case of any error
+    await pool.query("ROLLBACK");
+    console.error(error.message);
+    
+    res.status(500).json({ 
+      message: "Server Error",
+      error: error.message 
+  });
+
+  }
+};
+
+
+
+module.exports = { getUsers, createUser, loginUser, signupUser};
