@@ -86,8 +86,8 @@ const loginUser = async (req, res) => {
     }
 
     const result = await pool.query(
-      `CALL event_karlo_backend.get_password_hash_by_email($1, $2)`,
-      [email, null]
+      `CALL event_karlo_backend.get_password_hash_by_email($1, $2, $3)`,
+      [email, null, null]
     );
 
     if (!result) {
@@ -97,9 +97,12 @@ const loginUser = async (req, res) => {
     passwordHash = result.rows[0].password_hash;
 
     if (await bcrypt.compare(password, passwordHash)) {
+      const first_name =  result.rows[0].first_name;
+
       res.status(200).json({
         status: "Success",
         message: `user ${email} is logged in`,
+        firstName: `${first_name}`
       });
     }
   } catch (error) {
