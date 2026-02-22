@@ -1,0 +1,38 @@
+version: "3.8"
+
+services:
+  ek_backend_service:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.dev
+    container_name: ek_backend
+    ports:
+      - "3001:3000"
+    volumes:
+      - .:/app
+      - /app/node_modules
+    restart: unless-stopped
+    networks:
+      ek_network:
+        ipv4_address: 172.40.0.3
+    environment:
+      - NODE_ENV=development
+      - APP_PORT=3000
+      - APP_HOST=0.0.0.0
+
+  ek_neon_db:
+    image: neondatabase/neon_local:latest
+    ports:
+      - "5434:5432"
+    environment:
+      NEON_API_KEY: ${NEON_API_KEY}
+      NEON_PROJECT_ID: ${NEON_PROJECT_ID}
+
+
+networks:
+  ek_network:
+    driver: bridge
+    name: ek_network
+    ipam:
+      config:
+        - subnet: 172.40.0.0/24

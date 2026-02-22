@@ -3,6 +3,7 @@
   "version": "1.0.0",
   "description": "This is the initialization of project",
   "main": "app.js",
+  "type": "module",
   "scripts": {
     "test": "test",
     "start": "node index.js",
@@ -11,15 +12,20 @@
   "author": "",
   "license": "MIT",
   "dependencies": {
+    "@neondatabase/serverless": "^1.0.2",
     "bcrypt": "^5.1.1",
     "cors": "^2.8.5",
-    "dotenv": "^16.4.7",
+    "dotenv": "^16.6.1",
     "express": "^4.21.2",
     "helmet": "^8.0.0",
     "morgan": "^1.10.0",
-    "pg": "^8.13.1"
+    "pg": "^8.16.3",
+    "ws": "^8.19.0"
   },
   "devDependencies": {
+    "@types/node": "^25.0.5",
+    "@types/pg": "^8.16.0",
+    "@types/ws": "^8.18.1",
     "nodemon": "^3.1.9"
   }
 }
