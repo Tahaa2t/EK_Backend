@@ -2,77 +2,88 @@
 
 ## What This Is
 
-A Node.js/Express REST API backend for the "Event Karlo" platform. Currently implements user signup and login endpoints with bcrypt password hashing. The project is in early development — the database layer is being migrated to Prisma ORM with NeonDB, and multiple bugs and security issues identified in the codebase audit need to be resolved before production readiness.
+A Node.js/Express REST API backend for the "Event Karlo" event management platform. The system manages users (customers, vendors, admins), event services offered by vendors, and platform subscriptions. Authentication is handled by Neon Auth (Better Auth), which stores credentials and sessions in its own schema. Application data lives in the `event_karlo_backend` schema managed via Prisma.
 
 ## Core Value
 
-Users can securely sign up and log in, receiving a JWT to authenticate subsequent requests — everything else depends on this working correctly.
+Vendors can list services and customers can discover them — all behind a secure, session-based auth layer powered by Neon Auth.
 
 ## Requirements
 
 ### Validated
 
 - ✓ Express server with cors, helmet, morgan middleware — existing
-- ✓ POST /api/users/signup endpoint — existing (buggy, being fixed)
-- ✓ POST /api/users/login endpoint — existing (buggy, being fixed)
-- ✓ Password hashing with bcrypt (salt rounds = 10) — existing
 - ✓ Global error handler middleware — existing (being improved)
 
 ### Active
 
-- [ ] Prisma ORM installed and configured with NeonDB (DATABASE_URL from .env)
-- [ ] Prisma schema defines `users` and `auth` tables; initial migration run against NeonDB
-- [ ] All DB access via Prisma client (replace pg pool + raw SQL in controllers)
-- [ ] Module system fixed: remove `"type": "module"` from package.json (stay CommonJS)
-- [ ] package.json `main` field corrected to `index.js`
-- [ ] TypeScript artifacts removed (tsconfig.json, @types/* devDependencies)
-- [ ] Implicit global `userId` variable fixed (add `const`) in createUser and signupUser
-- [ ] loginUser: wrong password returns 401 (not silence/timeout)
-- [ ] loginUser: missing `password` field returns 400 (not 500)
-- [ ] loginUser: issues JWT access token on success
-- [ ] signupUser: plaintext password removed from console.log
-- [ ] signupUser: error.message removed from response body
-- [ ] CORS restricted to `process.env.ALLOWED_ORIGINS` (no wildcard)
-- [ ] Input validation added to signup and login (Zod)
-- [ ] Rate limiting on POST /api/users/login (express-rate-limit)
-- [ ] Auth middleware (JWT verification) in place for future protected routes
-- [ ] errorHandler middleware handles err.status / err.statusCode correctly
-- [ ] getUsers function and route deleted entirely
+**ESM & Project Health**
+- [ ] All source files converted from CommonJS to ESM (required by Better Auth)
+- [ ] `package.json` `main` field corrected to `index.js`
+- [ ] `tsconfig.json` and `@types/*` devDependencies removed
+- [ ] `config/db.js` (pg pool, hardcoded credentials) deleted
+- [ ] `pg` and `ws` removed from dependencies
+- [ ] All bugs from codebase audit fixed (implicit globals, status codes, password logging, error leakage)
+- [ ] `getUsers` function and route deleted
+
+**Neon Auth (Better Auth)**
+- [ ] Better Auth installed and configured with Prisma adapter
+- [ ] Auth routes mounted at `/api/auth/*` via `toNodeHandler(auth)`
+- [ ] Better Auth generates and migrates its own schema (user, session, account, verification tables)
+- [ ] `BETTER_AUTH_SECRET` and `BETTER_AUTH_URL` added to `.env`
+- [ ] Auth middleware (`middlewares/auth.js`) verifies session via `auth.api.getSession()`
+- [ ] User profile record in `event_karlo_backend.user` auto-created via Better Auth `onUserCreate` hook
+
+**Database Schema (Prisma → NeonDB)**
+- [ ] Prisma configured with `DATABASE_URL`; schema in `prisma/schema.prisma`
+- [ ] `event_karlo_backend.user` table: id (serial), user_id (uuid, PK), email, first_name, last_name, phone, user_type (customer/vendor/admin), created_at, updated_at
+- [ ] `event_karlo_backend.service` table: id (serial), service_id (uuid, PK), name, description, vendor_id (FK → user.user_id), meta (JSON), created_at, updated_at
+- [ ] `event_karlo_backend.subscription` table: id (serial), subscription_id (uuid, PK), user_id (FK → user.user_id), plan (free/pro/premium), status (active/inactive/cancelled/expired), started_at, expires_at, renewed_at, payment_ref, created_at, updated_at
+- [ ] Initial migration runs successfully against NeonDB
+
+**Security & Validation**
+- [ ] CORS restricted to `process.env.ALLOWED_ORIGINS`
+- [ ] Zod validation on all API request bodies
+- [ ] Rate limiting on auth-sensitive endpoints (express-rate-limit)
+- [ ] `errorHandler` middleware handles `err.status`/`err.statusCode` correctly
 
 ### Out of Scope
 
-- Refresh tokens / token rotation — deferred to next milestone after core auth works
-- Email verification after signup — not in current scope
-- OAuth / magic link login — not in current scope
-- Tests — not in current scope (zero test infra exists; add in a future phase)
-- Docker/docker-compose fixes — not blocking local dev with NeonDB
-- HTTPS enforcement — handled at infra/proxy layer, not application layer
+- Manual JWT implementation — replaced entirely by Neon Auth (Better Auth)
+- `auth` table in `event_karlo_backend` — Better Auth manages credentials in its own schema
+- Email verification, OAuth, magic link — Better Auth supports these later; not in v1
+- Refresh token management — handled transparently by Better Auth sessions
+- Tests — deferred to future milestone
+- Docker/docker-compose fixes — not blocking with NeonDB remote
+- HTTPS enforcement — handled at proxy/infra layer
+- Event table, booking table, payments — future milestones
 
 ## Context
 
-- Database was previously local Postgres with hardcoded credentials in config/db.js; now migrating to NeonDB with DATABASE_URL in .env
-- The `event_karlo_backend` schema and its `users`/`auth` tables previously existed on the old machine; they need to be recreated via Prisma migrations on NeonDB from scratch
-- The stored procedure `event_karlo_backend.get_password_hash_by_email` (used in loginUser) will be replaced by a Prisma query — no stored procedures needed
-- Module system: package.json declares ESM (`"type": "module"`) but all source files use CommonJS (`require`/`module.exports`) — fix by removing `"type": "module"` (simpler than converting everything to ESM)
-- jsonwebtoken needs to be added as a dependency for JWT issuance
-- zod and express-rate-limit need to be added as dependencies
+- Previously: local Postgres with hardcoded credentials in `config/db.js`, manual bcrypt + raw SQL controllers
+- Now: NeonDB remote, Neon Auth (Better Auth) for credentials/sessions, Prisma for app schema
+- Better Auth **requires ESM** (`"type": "module"`) — source files must be converted from `require()`/`module.exports` to `import`/`export`
+- The old `signupUser` and `loginUser` controllers are replaced by Better Auth's `/api/auth/sign-up` and `/api/auth/sign-in` endpoints
+- `event_karlo_backend.user` is an application profile table linked to Better Auth's internal user id
+- Schema name: `event_karlo_backend` (set in Prisma schema via `@@schema`)
 
 ## Constraints
 
-- **DB**: NeonDB only — DATABASE_URL already in .env, no local Postgres
-- **ORM**: Prisma — for both schema definition and migrations
-- **Language**: Plain JavaScript (CommonJS) — TypeScript migration explicitly deferred
-- **Auth**: JWT-based stateless auth — no sessions, no refresh tokens in this milestone
+- **Auth**: Neon Auth (Better Auth) — no manual JWT, no manual password hashing
+- **DB**: NeonDB only — `DATABASE_URL` in `.env`
+- **ORM**: Prisma — schema definition, migrations, and app queries
+- **Language**: JavaScript ESM — required by Better Auth; no TypeScript
+- **Module system**: ESM throughout — `"type": "module"` stays in `package.json`
 
 ## Key Decisions
 
 | Decision | Rationale | Outcome |
 |----------|-----------|---------|
-| Prisma over raw SQL | Eliminates manual transaction management, provides type-safe queries, handles migrations | — Pending |
-| Stay CommonJS | Removing `"type": "module"` is one-line fix vs converting 7 files to ESM | — Pending |
-| Delete getUsers | Exposing all users with no auth/pagination is a security risk; not needed now | — Pending |
-| JWT (no refresh tokens) | Simplest working auth for v1; refresh tokens deferred | — Pending |
-| Zod for validation | Works well with JS + Prisma, good error messages | — Pending |
+| Neon Auth (Better Auth) | Offloads credential storage, sessions, token management to managed service | — Pending |
+| Convert to ESM (not remove) | Better Auth explicitly requires ESM; CommonJS not supported | — Pending |
+| Prisma for app schema | Type-safe queries, migration management, NeonDB compatible | — Pending |
+| `event_karlo_backend` schema via Prisma | User-defined schema prefix, keeps app data separate from auth schema | — Pending |
+| subscription = platform tiers | Free/Pro/Premium access model for platform features | — Pending |
 
 ---
-*Last updated: 2026-03-08 after initialization*
+*Last updated: 2026-03-08 after scope revision — Neon Auth replaces manual JWT, schema expanded to service/subscription*
