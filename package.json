@@ -1,31 +1,32 @@
 {
   "name": "ek_backend",
   "version": "1.0.0",
-  "description": "This is the initialization of project",
-  "main": "app.js",
+  "description": "Event Karlo Backend — Express REST API with Neon Auth (Better Auth) and Prisma on NeonDB",
+  "main": "index.js",
   "type": "module",
   "scripts": {
-    "test": "test",
     "start": "node index.js",
-    "dev": "nodemon index.js"
+    "dev": "nodemon index.js",
+    "prisma:generate": "prisma generate",
+    "prisma:migrate": "prisma migrate dev",
+    "prisma:deploy": "prisma migrate deploy",
+    "auth:generate": "npx @better-auth/cli generate"
   },
   "author": "",
   "license": "MIT",
   "dependencies": {
-    "@neondatabase/serverless": "^1.0.2",
-    "bcrypt": "^5.1.1",
+    "@prisma/client": "^5.22.0",
+    "better-auth": "^1.2.7",
     "cors": "^2.8.5",
     "dotenv": "^16.6.1",
     "express": "^4.21.2",
+    "express-rate-limit": "^7.4.1",
     "helmet": "^8.0.0",
     "morgan": "^1.10.0",
-    "pg": "^8.16.3",
-    "ws": "^8.19.0"
+    "zod": "^3.23.8"
   },
   "devDependencies": {
-    "@types/node": "^25.0.5",
-    "@types/pg": "^8.16.0",
-    "@types/ws": "^8.18.1",
-    "nodemon": "^3.1.9"
+    "nodemon": "^3.1.9",
+    "prisma": "^5.22.0"
   }
 }
