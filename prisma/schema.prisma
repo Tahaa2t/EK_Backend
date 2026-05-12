@@ -1,0 +1,161 @@
+// Prisma schema for Event Karlo Backend
+// Two logical schemas:
+//   - public:               Better Auth managed tables (credentials, sessions)
+//   - event_karlo_backend:  Application profile + business data
+
+generator client {
+  provider        = "prisma-client-js"
+  previewFeatures = ["multiSchema"]
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+  schemas  = ["public", "event_karlo_backend"]
+}
+
+// ============================================================
+// Better Auth tables (public schema)
+// Generated to match better-auth's default Prisma adapter shape.
+// ============================================================
+
+model User {
+  id            String    @id
+  name          String
+  email         String    @unique
+  emailVerified Boolean   @default(false)
+  image         String?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  sessions      Session[]
+  accounts      Account[]
+
+  @@map("user")
+  @@schema("public")
+}
+
+model Session {
+  id        String   @id
+  expiresAt DateTime
+  token     String   @unique
+  createdAt DateTime
+  updatedAt DateTime
+  ipAddress String?
+  userAgent String?
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("session")
+  @@schema("public")
+}
+
+model Account {
+  id                    String    @id
+  accountId             String
+  providerId            String
+  userId                String
+  user                  User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  accessToken           String?
+  refreshToken          String?
+  idToken               String?
+  accessTokenExpiresAt  DateTime?
+  refreshTokenExpiresAt DateTime?
+  scope                 String?
+  password              String?
+  createdAt             DateTime
+  updatedAt             DateTime
+
+  @@map("account")
+  @@schema("public")
+}
+
+model Verification {
+  id         String    @id
+  identifier String
+  value      String
+  expiresAt  DateTime
+  createdAt  DateTime?
+  updatedAt  DateTime?
+
+  @@map("verification")
+  @@schema("public")
+}
+
+// ============================================================
+// Application data (event_karlo_backend schema)
+// ============================================================
+
+enum UserType {
+  customer
+  vendor
+  admin
+
+  @@schema("event_karlo_backend")
+}
+
+enum SubscriptionPlan {
+  free
+  pro
+  premium
+
+  @@schema("event_karlo_backend")
+}
+
+enum SubscriptionStatus {
+  active
+  inactive
+  cancelled
+  expired
+
+  @@schema("event_karlo_backend")
+}
+
+model UserProfile {
+  id            Int            @unique @default(autoincrement())
+  user_id       String         @id @db.Uuid
+  email         String         @unique
+  first_name    String
+  last_name     String
+  phone         String?
+  user_type     UserType       @default(customer)
+  created_at    DateTime       @default(now())
+  updated_at    DateTime       @updatedAt
+  services      Service[]
+  subscriptions Subscription[]
+
+  @@map("user")
+  @@schema("event_karlo_backend")
+}
+
+model Service {
+  id          Int         @unique @default(autoincrement())
+  service_id  String      @id @default(uuid()) @db.Uuid
+  name        String
+  description String
+  vendor_id   String      @db.Uuid
+  vendor      UserProfile @relation(fields: [vendor_id], references: [user_id], onDelete: Cascade)
+  meta        Json        @default("{}")
+  created_at  DateTime    @default(now())
+  updated_at  DateTime    @updatedAt
+
+  @@map("service")
+  @@schema("event_karlo_backend")
+}
+
+model Subscription {
+  id              Int                @unique @default(autoincrement())
+  subscription_id String             @id @default(uuid()) @db.Uuid
+  user_id         String             @db.Uuid
+  user            UserProfile        @relation(fields: [user_id], references: [user_id], onDelete: Cascade)
+  plan            SubscriptionPlan   @default(free)
+  status          SubscriptionStatus @default(active)
+  started_at      DateTime           @default(now())
+  expires_at      DateTime
+  renewed_at      DateTime?
+  payment_ref     String?
+  created_at      DateTime           @default(now())
+  updated_at      DateTime           @updatedAt
+
+  @@map("subscription")
+  @@schema("event_karlo_backend")
+}

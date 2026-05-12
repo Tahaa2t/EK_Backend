@@ -1,17 +1,20 @@
 # Development Dockerfile
 FROM node:20-alpine
 
-# Install bash
-RUN apk add --no-cache bash
+# Install bash and OpenSSL (required by Prisma engines on alpine)
+RUN apk add --no-cache bash openssl libc6-compat
 
 WORKDIR /app
 
 # Install dependencies
 COPY package*.json ./
-RUN npm ci
+RUN npm install
 
 # Copy source code
 COPY . .
+
+# Generate Prisma client
+RUN npx prisma generate
 
 # Expose backend port
 EXPOSE 3000
@@ -20,5 +23,4 @@ EXPOSE 3000
 SHELL ["/bin/bash", "-c"]
 
 # Start the development server with nodemon
-CMD ["/bin/bash", "-c", "npm run dev"]
-
+CMD ["/bin/bash", "-c", "npx prisma migrate deploy && npm run dev"]
